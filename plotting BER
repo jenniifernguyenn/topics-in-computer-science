@@ -1,0 +1,185 @@
+%%this script plot the BER over temperatures
+
+clear all;
+clc
+idxT = 4;
+idxC = 4;
+Chip = ["chip41", "chip42", "chip235", "chip237"];
+Temp = ["-15oC","0oC","25oC", "80oC"];
+idxA = 0;
+idxB = 0;
+bitLine = [];
+bitProb = zeros(1,2048*8*1);%2048 bytes 8 bits 1 chipss
+BERres = [];
+
+%plot raw BER
+%loop for temperature
+for idxT = 1:4
+    
+    %hold the ubit8 array
+    chip = []; 
+    
+    %opens up Test0 of Chip(n) at 25C
+    path = "./"+Chip(4)+"/"+Temp(3)+"/Test0.bin";
+    fs = fopen(path,'rb');
+    chip = fread(fs,'ubit8');
+    fclose(fs);
+    A = [];%bit string
+    for idx=1:length(chip)
+        A = [A,bitget(chip(idx),8:-1:1)];
+    end
+    bitProb = bitProb + A;
+    disp(Chip(4)+" "+Temp(3)+" 'Big chip test"+idxA+"'");
+
+    count = 0;
+    
+    %loop for test cases
+    for idxB = 1:99
+        
+        %hold the ubit8 array
+        chip1 = [];
+        
+        %opens up Tests(n) of Chip(n) at n degrees
+        path = "./"+Chip(4)+"/"+Temp(idxT)+"/Test"+idxB+".bin";
+        fs = fopen(path,'rb');
+        chip1 = fread(fs,'ubit8');
+        fclose(fs);
+        B = [];%bit string
+        for idx=1:length(chip1)
+            B = [B,bitget(chip1(idx),8:-1:1)];
+        end
+        bitProb = bitProb + B;
+        disp(Chip(4)+" "+Temp(idxT)+" 'Big chip test"+idxB+"'");
+        
+        %finds raw BER of Tests(n) against Test0 of n degrees
+        [number,ratio] = biterr(A,B);
+        count = count+ratio;
+
+    end
+    
+    %finds the average BER and adds the result to 'BERres'
+    count = (count/99);
+    BERres = [BERres, count];
+end
+
+%plots raw BER
+ttemp = [-15,0,25,80];
+plot(ttemp, BERres);
+title("The Effect of Temperature on BER (Chip237)");
+xlabel("Temperature (°C)");
+ylabel("BER");
+% hold on;
+
+%number of bits that differ in comparison
+disp(number);
+
+%total number of bits
+disp(ratio);
+
+% disp(count);
+disp(BERres);
+
+%initialising variables again to find selected BER
+idxT = 4;
+idxC = 4;
+Chip = ["chip41", "chip42", "chip235", "chip237"];
+Temp = ["-15oC","0oC","25oC", "80oC"];
+idxA = 0;
+idxB = 0;
+bitLine = [];
+bitProb = zeros(1,2048*8*1);%2048 bytes 8 bits 1 chipss
+BERres = [];
+
+%finding selected BER
+%loop for temperature
+for idxT = 1:4
+    chip = [];%hold the ubit8 array
+    
+    %opens up Test0 of Chip(n) at 25C
+    path = "./"+Chip(1)+"/"+Temp(3)+"/Test0.bin";
+    fs = fopen(path,'rb');
+    chip = fread(fs,'ubit8');
+    fclose(fs);
+    A = [];%bit string
+    for idx=1:length(chip)
+        A = [A,bitget(chip(idx),8:-1:1)];
+    end
+    bitProb = bitProb + A;
+    disp(Chip(1)+" "+Temp(3)+" 'Big chip test"+idxA+"'");
+
+    array = [];
+    
+    %loop for 10 tests
+    for idxB = 1:10 
+        
+        %opens up Test0 of Chip(n) at 25C
+        path = "./"+Chip(1)+"/"+Temp(idxT)+"/Test"+idxB+".bin";
+        fs = fopen(path,'rb');
+        chip1 = fread(fs,'ubit8');
+        fclose(fs);
+        T = [];%bit string
+        for idx=1:length(chip1)
+            T = [T,bitget(chip1(idx),8:-1:1)];
+        end
+        bitProb = bitProb + T;
+        disp(Chip(1)+" "+Temp(idxT)+" 'Big chip test"+idxB+"'");
+        
+        %calculates how many '1's there are in the 10 tests
+        if idxB == 1
+            array = [array, T];
+        else 
+            array = array + T;
+        end
+    end
+
+    count = 0;
+    count2 = 0;
+    
+    %loop for Tests 11-99
+    for idxB = 11:99
+        
+        chip1 = [];%hold the ubit8 array
+        
+        %opens up Tests(n) of Chip(n) at n degrees
+        path = "./"+Chip(1)+"/"+Temp(idxT)+"/Test"+idxB+".bin";
+        fs = fopen(path,'rb');
+        chip1 = fread(fs,'ubit8');
+        fclose(fs);
+        B = [];%bit string
+        for idx=1:length(chip1)
+            B = [B,bitget(chip1(idx),8:-1:1)];
+        end
+        bitProb = bitProb + B;
+        disp(Chip(1)+" "+Temp(idxT)+" 'Big chip test"+idxB+"'");
+                
+        array2 = [];
+        array3 = [];
+        
+        %if majority of the 10 test cases above (>5)
+        for length1=1:16384
+            if array(length1) > 5
+                array3 = [array3, A(length1)];
+                array2 = [array2, B(length1)];
+            end
+        end
+        
+        %finds selected BER of Tests(n) against Test0 of n degrees
+        [number,ratio] = biterr(array3,array2);
+        count = count+ratio;
+        
+    end
+    count = (count/length(array2));
+    BERres = [BERres, count];
+end
+
+disp(number);
+disp(ratio);
+disp(count);
+disp(BERres);
+
+%plots selected BER
+ttemp = [-15,0,25,80];
+plot(ttemp, BERres);
+title("The Effect of Temperature on BER");
+xlabel("Temperature (°C)");
+ylabel("BER");
